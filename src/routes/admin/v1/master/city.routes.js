@@ -1,0 +1,12 @@
+import express from "express";
+import CityController from "./../../../../controllers/admin/v1/master/CityController.js";
+import CityAreaController from "./../../../../controllers/admin/v1/master/CityAreaController.js";
+const router = express.Router();
+router.post("/area", CityAreaController.addArea);
+router.put("/area/:id", CityAreaController.updateArea);
+router.delete("/area/:id", CityAreaController.deleteArea);
+router.post("/", CityController.addCity);
+router.put("/:id", CityController.updateCity);
+router.get("/", CityController.getCities);
+router.delete("/:id", CityController.deleteCity);
+export default router;
