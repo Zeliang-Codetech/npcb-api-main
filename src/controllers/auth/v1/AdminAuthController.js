@@ -56,6 +56,42 @@ export default {
         .send({ status: false, message: error.message });
     }
   },
+
+  createUser: async (req, res, next) => {
+    try {
+      const { name, phone, password } = req.body;
+
+      // Check if user already exists
+      const existingUser = await User.findOne({ phone });
+      if (existingUser) {
+        throw createHttpError.BadRequest("User already exists");
+      }
+
+      // Create a new user
+      const userData = {
+        name,
+        phone,
+        password: await bcrypt.hash(password, 10),
+        // Add other user fields as needed
+      };
+
+      const user = await User.create(userData);
+      user.save();
+
+      res.status(200).send({
+        status: true,
+        message: "User created successfully",
+        user: {
+          name: user.name,
+          phone: user.phone,
+        },
+      });
+    } catch (error) {
+      res
+        .status(error.status || 500)
+        .send({ status: false, message: error.message });
+    }
+  },
   getUser: async (req, res, next) => {
     try {
       const user_id = req.payload._id;
