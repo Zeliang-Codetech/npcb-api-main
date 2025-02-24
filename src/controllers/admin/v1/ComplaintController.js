@@ -64,26 +64,41 @@ export default {
     try {
       const complaints = await Complaint.find({})
         .select("_id image status latitude longitude area_id aqi createdAt")
-        .populate({ path: "category_id", select: "name phone" })
+        .populate({ path: "category_id", select: "name" })
         .populate({ path: "city_id", select: "name areas" })
+        .populate({ path: "client_id", select: "name phone email" }) // Added client population
         .sort({ _id: -1 })
         .lean();
       complaints?.map((complaint) => {
         complaint.category_name = complaint?.category_id?.name;
         complaint.city_name = complaint?.city_id?.name;
-        complaint.area_name = complaint?.city_id?.areas?.find((area) =>
+        
+        // Get area details including AQI
+        const area = complaint?.city_id?.areas?.find((area) =>
           area._id?.equals(complaint?.area_id)
-        )?.name;
-        complaint.client_name = complaint?.client_id?.name;
-        complaint.client_phone = complaint?.client_id?.phone;
+        );
+        
+        complaint.area_name = area?.name;
+        complaint.area_aqi = area?.aqi; // Add area AQI
+    
+        // Add client details
+        complaint.client_details = {
+          name: complaint?.client_id?.name,
+          phone: complaint?.client_id?.phone,
+          email: complaint?.client_id?.email
+        };
+    
         complaint.created_at = moment(complaint?.createdAt).format(
           "DD/MM/YYYY hh:mm:ss"
         );
+    
+        // Cleanup populated fields
         delete complaint.category_id;
         delete complaint.city_id;
         delete complaint.client_id;
         delete complaint.area_id;
       });
+      
       res.status(200).send({ status: true, data: complaints });
     } catch (err) {
       res
@@ -91,4 +106,87 @@ export default {
         .send({ status: false, message: err.message });
     }
   },
+  getComplaintById: async (req, res) => {
+    try {
+      const complaint_id = req.params.id;
+      if (!isValidObjectId(complaint_id)) throw createHttpError.BadRequest();
+      
+      const complaint = await Complaint.findById(complaint_id)
+        .populate({ path: "category_id", select: "name" })
+        .populate({ path: "city_id", select: "name areas" })
+        .populate({ path: "client_id", select: "name phone email" })
+        .lean();
+      if (!complaint) throw createHttpError.NotFound();
+      // Transform the data
+      const response = {
+        ...complaint,
+        category_name: complaint?.category_id?.name,
+        city_name: complaint?.city_id?.name,
+        area_name: complaint?.city_id?.areas?.find((area) =>
+          area._id?.equals(complaint?.area_id)
+        )?.name,
+        client_details: {
+          name: complaint?.client_id?.name,
+          phone: complaint?.client_id?.phone,
+          email: complaint?.client_id?.email
+        },
+        created_at: moment(complaint?.createdAt).format("DD/MM/YYYY hh:mm:ss"),
+      };
+      // Remove populated fields from response
+      delete response.category_id;
+      delete response.city_id;
+      delete response.client_id;
+      delete response.area_id;
+      res.status(200).send({ 
+        status: true, 
+        data: response 
+      });
+    } catch (err) {
+      res
+        .status(err.status || 500)
+        .send({ status: false, message: err.message });
+    }
+  },
+  getComplaintById: async (req, res) => {
+    try {
+      const complaint_id = req.params.id;
+      if (!isValidObjectId(complaint_id)) throw createHttpError.BadRequest();
+      
+      const complaint = await Complaint.findById(complaint_id)
+        .populate({ path: "category_id", select: "name" })
+        .populate({ path: "city_id", select: "name areas" })
+        .populate({ path: "client_id", select: "name phone email" })
+        .lean();
+      if (!complaint) throw createHttpError.NotFound();
+      // Transform the data
+      const response = {
+        ...complaint,
+        category_name: complaint?.category_id?.name,
+        city_name: complaint?.city_id?.name,
+        area_name: complaint?.city_id?.areas?.find((area) =>
+          area._id?.equals(complaint?.area_id)
+        )?.name,
+        client_details: {
+          name: complaint?.client_id?.name,
+          phone: complaint?.client_id?.phone,
+          email: complaint?.client_id?.email
+        },
+        created_at: moment(complaint?.createdAt).format("DD/MM/YYYY hh:mm:ss"),
+      };
+      // Remove populated fields from response
+      delete response.category_id;
+      delete response.city_id;
+      delete response.client_id;
+      delete response.area_id;
+      res.status(200).send({ 
+        status: true, 
+        data: response 
+      });
+    } catch (err) {
+      res
+        .status(err.status || 500)
+        .send({ status: false, message: err.message });
+    }
+  },
+  
 };

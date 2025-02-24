@@ -76,7 +76,7 @@ export default {
         .select("_id status latitude longitude")
         .sort({ _id: -1 })
         .lean();
-      complaints?.map((complaint) => {});
+      complaints?.map((complaint) => { });
       res.status(200).send({ status: true, data: complaints });
     } catch (err) {
       res
@@ -106,4 +106,22 @@ export default {
         .send({ status: false, message: err.message });
     }
   },
+  getComplaintById: async (req, res, next) => {
+      try {
+        const complaint_id = req.params.id;
+        if (!isValidObjectId(complaint_id)) throw createHttpError.BadRequest();
+        const complaint = await Complaint.findById(complaint_id)
+          .populate({ path: "category_id", select: "name" })
+          .populate({ path: "city_id", select: "name" })
+          .lean();
+        if (!complaint) throw createHttpError.NotFound();
+        complaint.category_name = complaint?.category_id?.name;
+        complaint.city_name = complaint?.city_id?.name;
+        delete complaint.category_id;
+        delete complaint.city_id;
+        res.status(200).send({ status: true, data: complaint });
+      } catch (err) {
+        res.status(err.status || 500).send({ status: false, message: err.message });
+      }
+    },
 };

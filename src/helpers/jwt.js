@@ -98,7 +98,7 @@ export default {
   signClientAccessToken: (id, cid) => {
     return new Promise((resolve, reject) => {
       const payload = {
-        id: id,
+        _id: id,
         cid: cid,
       };
       const secret = process.env.CLIENT_TOKEN;
@@ -116,16 +116,33 @@ export default {
     });
   },
   verifyClientAccessToken: (req, res, next) => {
-    if (!req.cookies.token) return next(createHttpError.Unauthorized());
-    const token = req.cookies.token;
-    JWT.verify(token, process.env.CLIENT_TOKEN, (err, payload) => {
-      if (err) {
-        const message =
-          err.name === "JsonWebTokenError" ? "Unauthorized" : err.message;
-        return next(createHttpError.Unauthorized(message));
+    try {
+      let token;
+      
+      // Check Authorization header first
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.split(' ')[1];
+      } 
+      // Fallback to cookie
+      else if (req.cookies.token) {
+        token = req.cookies.token;
       }
-      req.payload = payload;
-      next();
-    });
+      
+      if (!token) {
+        return next(createHttpError.Unauthorized('Access token is required'));
+      }
+      
+      JWT.verify(token, process.env.CLIENT_TOKEN, (err, payload) => {
+        if (err) {
+          const message = err.name === 'JsonWebTokenError' ? 'Unauthorized' : err.message;
+          return next(createHttpError.Unauthorized(message));
+        }
+        req.payload = payload;
+        next();
+      });
+    } catch (error) {
+      next(createHttpError.Unauthorized());
+    }
   },
 };

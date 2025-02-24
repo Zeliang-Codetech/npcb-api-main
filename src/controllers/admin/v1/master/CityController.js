@@ -60,4 +60,27 @@ export default {
         .send({ status: false, message: err.message });
     }
   },
+  getCity: async (req, res) => {
+    try {
+      const city_id = req.params.id;
+      if (!isValidObjectId(city_id)) throw createHttpError.BadRequest();
+
+      const data = await City.findById(city_id)
+        .select("_id name areas")
+        .lean();
+
+      if (!data) {
+        return res.status(404).send({ 
+          status: false, 
+          message: "City not found" 
+        });
+      }
+
+      res.status(200).send({ status: true, data });
+    } catch (err) {
+      res
+        .status(err.status || 500)
+        .send({ status: false, message: err.message });
+    }
+  },
 };
