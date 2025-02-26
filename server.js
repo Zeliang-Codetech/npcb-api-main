@@ -12,7 +12,6 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Update CORS options to accept multiple origins
 var corsOptions = {
   origin: [
     'http://localhost:3001',
@@ -28,18 +27,26 @@ var corsOptions = {
   optionsSuccessStatus: 204
 };
 
-// Remove duplicate CORS middleware
 app.use(cors(corsOptions));
 moment.tz.setDefault("Asia/Kolkata");
-Database();
+const startServer = async () => {
+  try {
+    // Initialize database connection
+    await Database();
+    
+    app.listen(8082, () => {
+      console.log("Server running on PORT 8082");
+    });
+  } catch (error) {
+    console.error("Failed to start server:", error);
+    process.exit(1);
+  }
+};
 app.set("view engine", "ejs");
 app.get("/", (req, res) => {
   res.status(401).send({ status: false, message: "Invalid Credentials" });
 });
 global.appRoot = path.resolve(__dirname);
-
-// Remove this duplicate CORS call
-// app.use(cors(corsOptions));
 
 app.use(cookieParser());
 app.use(morgan("dev"));
@@ -79,10 +86,4 @@ app.use((err, req, res, next) => {
   });
 });
 
-// app.listen(APP_PORT || 8082, () => {
-//   console.log(`Server running on PORT ${APP_PORT}`);
-// });
-
-app.listen(8082, () => {
-  console.log("Server running on PORT 8082");
-});
+startServer();

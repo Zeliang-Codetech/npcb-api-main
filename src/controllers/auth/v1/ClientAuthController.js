@@ -155,17 +155,9 @@ export default {
       // Generate a random 6-digit OTP
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-      // In a real application, you would:
-      // 1. Store the OTP in a temporary storage (Redis/DB) with an expiration
-      // 2. Send the OTP via SMS using a service provider
-
-      // For testing, we'll create a session ID
       const session_id = Date.now().toString();
 
-      // Store OTP and session_id in your database or cache
-      // await storeOTP(phone, otp, session_id);
-
-      console.log(`OTP for ${phone}: ${otp}`); // For testing only
+      console.log(`OTP for ${phone}: ${otp}`);
 
       res.status(200).send({
         status: true,
@@ -189,14 +181,7 @@ export default {
         throw createHttpError.BadRequest("Missing required fields");
       }
 
-      // In a real application, you would:
-      // 1. Verify the OTP against the stored OTP
-      // 2. Check if the OTP has expired
-      // 3. Ensure the session_id matches
-
-      // For testing, we'll assume the OTP is valid
-      // const isValidOTP = await verifyStoredOTP(phone, otp, session_id);
-      const isValidOTP = true; // For testing only
+      const isValidOTP = true;
 
       if (!isValidOTP) {
         throw createHttpError.Unauthorized("Invalid OTP");
@@ -208,8 +193,8 @@ export default {
       if (!user) {
         user = await Client.create({
           phone,
-          name: "", // You might want to collect this later
-          status: 1 // Or whatever status you use for active users
+          name: "",
+          status: 1 
         });
       }
 
@@ -233,77 +218,6 @@ export default {
     }
   },
 
-  // sentOtp: async (req, res, next) => {
-  //   try {
-  //     const { phone } = req.body;
-  //     if (!phone) throw createHttpError.BadRequest();
-  //     SentOtp(phone, (err, response) => {
-  //       if (err) {
-  //         console.log("Error ", err);
-  //         res
-  //           .status(500)
-  //           .send({ status: false, message: "Failed to sent OTP" });
-  //       } else {
-  //         console.log("Response ", response.Details);
-  //         res.status(200).send({ status: true, session_id: response.Details });
-  //       }
-  //     });
-  //   } catch (err) {
-  //     console.log(err);
-  //     res
-  //       .status(err.status || 500)
-  //       .send({ status: false, message: err.message });
-  //   }
-  // },
-  // verifyOtp: async (req, res, next) => {
-  //   try {
-  //     const { phone, otp } = req.body;
-  //     let user = await Client.findOne({
-  //       phone,
-  //     }).catch((err) => {
-  //       throw createHttpError.InternalServerError();
-  //     });
-  //     if (!user) {
-  //       user = await Client.create({
-  //         phone,
-  //       }).catch((err) => {
-  //         throw createHttpError.InternalServerError();
-  //       });
-  //     } else {
-  //       // if (user?.account_status == AccountStatus.IN_ACTIVE)
-  //       //   throw createHttpError.Unauthorized("Your account is deactivated");
-  //       // await Client.updateOne(
-  //       //   { _id: user._id },
-  //       //   {
-  //       //     $set: {
-  //       //       fcm_token: fcm_token,
-  //       //     },
-  //       //   }
-  //       // );
-  //     }
-  //     if (!user) throw createHttpError.InternalServerError();
-  //     const accessToken = await signAccessToken(user._id);
-  //     // const refreshToken = await signRefreshToken(user._id);
-  //     res.cookie("token", accessToken, {
-  //       httpOnly: true,
-  //       secure: true,
-  //       sameSite: "None",
-  //       maxAge: 30 * 24 * 60 * 60 * 1000,
-  //     });
-  //     res.status(200).send({
-  //       status: true,
-  //       accessToken,
-  //       user: {
-  //         name: user.name,
-  //         phone: user.phone,
-  //       },
-  //     });
-  //   } catch (err) {
-  //     res
-  //       .status(err.status || 500)
-  //       .send({ status: false, message: err.message });
-  //   }
-  // },
   resetPassword: async (req, res, next) => {
     try {
       const { password } = req.body;
