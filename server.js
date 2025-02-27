@@ -19,7 +19,8 @@ var corsOptions = {
     'http://localhost:3001',
     'http://localhost:3002',
     'http://192.168.29.186:8082',
-    'http://localhost:8082'
+    'http://localhost:8082',
+    'https://npcb.in'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -77,7 +78,10 @@ app.use(express.json({ limit: "50mb" }));
 
 // Update CORS headers
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  const origin = req.headers.origin;
+  if (corsOptions.origin.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
   res.header('Access-Control-Allow-Credentials', true);
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
