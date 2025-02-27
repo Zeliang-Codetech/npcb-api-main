@@ -8,13 +8,12 @@ import Database from "./src/config/database.js";
 import path, { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import router from "./src/routes/index.js";
-import https from 'https';
-import fs from 'fs';
+
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-var corsOptions = {
+const corsOptions = {
   origin: [
     'http://localhost:3001',
     'http://localhost:3002',
@@ -35,48 +34,22 @@ var corsOptions = {
 app.use(cors(corsOptions));
 
 moment.tz.setDefault("Asia/Kolkata");
+
 const startServer = async () => {
   try {
     // Initialize database connection
     await Database();
-    
-    // For development (Windows/Local environment)
-    if (process.env.NODE_ENV === 'development') {
-      app.listen(8082, () => {
-        console.log("Server running on PORT 8082 (HTTP)");
-      });
-    } else {
-      try {
-        // For production with SSL (Linux environment)
-        const httpsOptions = {
-          cert: fs.readFileSync('/etc/letsencrypt/live/backend.npcb.in/fullchain.pem'),
-          key: fs.readFileSync('/etc/letsencrypt/live/backend.npcb.in/privkey.pem')
-        };
-      
-        // Use port 8443 for HTTPS
-        https.createServer(httpsOptions, app).listen(8443, () => {
-          console.log('HTTPS Server running on port 8443');
-        });
-      
-        // Use port 8080 for HTTP
-        const httpApp = express();
-        httpApp.all('*', (req, res) => {
-          res.redirect(`https://${req.hostname}${req.url}`);
-        });
-        httpApp.listen(8080);
-      } catch (sslError) {
-        console.error("SSL Certificate Error:", sslError.message);
-        // Fallback to HTTP if SSL fails
-        app.listen(8080, () => {
-          console.log("Server running on PORT 8080 (HTTP) - SSL Failed");
-        });
-      }
-    }
+
+    // Use port 8082 for both development and production
+    app.listen(8082, () => {
+      console.log("Server running on PORT 8082");
+    });
   } catch (error) {
     console.error("Failed to start server:", error);
     process.exit(1);
   }
 };
+
 app.set("view engine", "ejs");
 app.get("/", (req, res) => {
   res.status(401).send({ status: false, message: "Invalid Credentials" });
