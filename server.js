@@ -43,22 +43,31 @@ const startServer = async () => {
         console.log("Server running on PORT 8082 (HTTP)");
       });
     } else {
-      // For production with SSL (Linux environment)
-      const httpsOptions = {
-        cert: fs.readFileSync('/etc/letsencrypt/live/backend.npcb.in/fullchain.pem'),
-        key: fs.readFileSync('/etc/letsencrypt/live/backend.npcb.in/privkey.pem')
-      };
-    
-      https.createServer(httpsOptions, app).listen(443, () => {
-        console.log('HTTPS Server running on port 443');
-      });
-    
-      // Redirect HTTP to HTTPS
-      const httpApp = express();
-      httpApp.all('*', (req, res) => {
-        res.redirect(`https://${req.hostname}${req.url}`);
-      });
-      httpApp.listen(80);
+      try {
+        // For production with SSL (Linux environment)
+        const httpsOptions = {
+          cert: fs.readFileSync('/etc/letsencrypt/live/backend.npcb.in/fullchain.pem'),
+          key: fs.readFileSync('/etc/letsencrypt/live/backend.npcb.in/privkey.pem')
+        };
+      
+        // Use port 8443 for HTTPS
+        https.createServer(httpsOptions, app).listen(8443, () => {
+          console.log('HTTPS Server running on port 8443');
+        });
+      
+        // Use port 8080 for HTTP
+        const httpApp = express();
+        httpApp.all('*', (req, res) => {
+          res.redirect(`https://${req.hostname}${req.url}`);
+        });
+        httpApp.listen(8080);
+      } catch (sslError) {
+        console.error("SSL Certificate Error:", sslError.message);
+        // Fallback to HTTP if SSL fails
+        app.listen(8080, () => {
+          console.log("Server running on PORT 8080 (HTTP) - SSL Failed");
+        });
+      }
     }
   } catch (error) {
     console.error("Failed to start server:", error);
@@ -111,5 +120,5 @@ app.use((err, req, res, next) => {
     message: err.message,
   });
 });
-// Make sure to call startServer
+
 startServer();
