@@ -32,15 +32,52 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-
 moment.tz.setDefault("Asia/Kolkata");
 
+// Initialize middleware before routes
+app.use(cookieParser());
+app.use(morgan("dev"));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
+app.use(express.json({ limit: "50mb" }));
+
+app.set("view engine", "ejs");
+global.appRoot = path.resolve(__dirname);
+
+// Root route
+app.get("/", (req, res) => {
+  res.status(200).send({ status: true, message: "Server is running" });
+});
+
+// Routes
+app.use(router);
+app.use(express.static("public"));
+
+// 404 handler
+app.use((req, res, next) => {
+  res.status(404).json({
+    status: false,
+    message: "Not Found",
+  });
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+  res.status(err.status || 500);
+  res.send({
+    status: false,
+    message: err.message || 'Internal Server Error',
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
+});
+
+// Start server with database connection
 const startServer = async () => {
   try {
     // Initialize database connection
     await Database();
-
-    // Use port 8082 for both development and production
+    
+    // Start server after successful database connection
     app.listen(8082, () => {
       console.log("Server running on PORT 8082");
     });
@@ -49,33 +86,5 @@ const startServer = async () => {
     process.exit(1);
   }
 };
-
-app.set("view engine", "ejs");
-app.get("/", (req, res) => {
-  res.status(401).send({ status: false, message: "Invalid Credentials" });
-});
-global.appRoot = path.resolve(__dirname);
-
-app.use(cookieParser());
-app.use(morgan("dev"));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
-app.use(express.json({ limit: "50mb" }));
-
-app.use(router);
-app.use(express.static("public"));
-app.use((req, res, next) => {
-  res.status(404).json({
-    status: false,
-    message: "Not Found",
-  });
-});
-
-app.use((err, req, res, next) => {
-  res.status(err.status || 500);
-  res.send({
-    status: false,
-    message: err.message,
-  });
-});
 
 startServer();

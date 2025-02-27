@@ -1,5 +1,11 @@
 import Joi from "joi";
 
+const AdminAuthSchema = Joi.object().keys({
+  phone: Joi.string().required(),
+  password: Joi.string().required(),
+  fcm_token: Joi.string(),
+});
+
 const AuthSchema = Joi.object().keys({
   email: Joi.string().email().required(),
   password: Joi.string().required(),
@@ -14,4 +20,4 @@ const AuthRegisterSchema = Joi.object()
   })
   .unknown(true);
 
-export { AuthSchema, AuthRegisterSchema };
+export { AuthSchema, AuthRegisterSchema, AdminAuthSchema };

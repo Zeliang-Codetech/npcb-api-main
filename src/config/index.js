@@ -10,7 +10,11 @@ export const {
     ? process.env.ALLOWED_ORIGINS.split(',')
     : [
         'http://localhost:3001',
+        'http://localhost:3002',
         'http://192.168.29.186:8082',
-        'http://localhost:8082'
+        'http://localhost:8082',
+        'https://npcb.in',
+        'https://www.npcb.in',
+        'https://backend.npcb.in'
       ]
 } = process.env;

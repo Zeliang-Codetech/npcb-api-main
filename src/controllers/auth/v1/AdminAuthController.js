@@ -4,6 +4,7 @@ import bcrypt from "bcrypt";
 import {
   AuthSchema,
   AuthRegisterSchema,
+  AdminAuthSchema,
 } from "../../../validators/AuthValidator.js";
 
 import User from "./../../../models/User.js";
@@ -15,11 +16,11 @@ const signOtpToken = JWT.signOtpToken;
 export default {
   login: async (req, res, next) => {
     try {
-      await AuthSchema.validateAsync(req.body).catch((error) => {
+      await AdminAuthSchema.validateAsync(req.body).catch((error) => {
         throw createHttpError.BadRequest();
       });
 
-      const { phone, password, fcm_token } = req.body;
+      const { phone, password } = req.body;
       const user = await User.findOne({
         phone: phone,
       }).catch((err) => {
@@ -27,20 +28,22 @@ export default {
       });
 
       if (!user)
-        throw createHttpError.Unauthorized("Username/password not valid"); // User not registered
-      // if (user && (await user.isValidPassword(plainTextPassword))) { }
+        throw createHttpError.Unauthorized("Phone/password not valid");
+
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch)
-        throw createHttpError.Unauthorized("Username/password not valid");
+        throw createHttpError.Unauthorized("Phone/password not valid");
+
       const accessToken = await signAccessToken(user._id);
       const refreshToken = await signRefreshToken(user._id);
+
       res.cookie("token", accessToken, {
         httpOnly: true,
         secure: true,
-        // sameSite: "None",
         sameSite: false,
         maxAge: 30 * 24 * 60 * 60 * 1000,
       });
+
       res.status(200).send({
         status: true,
         user: {
@@ -61,26 +64,27 @@ export default {
     try {
       const { name, phone, password } = req.body;
 
-      // Check if user already exists
+      if (!phone || !password) {
+        throw createHttpError.BadRequest("Phone and password are required");
+      }
+
       const existingUser = await User.findOne({ phone });
       if (existingUser) {
         throw createHttpError.BadRequest("User already exists");
       }
 
-      // Create a new user
       const userData = {
         name,
         phone,
         password: await bcrypt.hash(password, 10),
-        // Add other user fields as needed
       };
 
       const user = await User.create(userData);
-      user.save();
+      await user.save();
 
       res.status(200).send({
         status: true,
-        message: "User created successfully",
+        message: "Admin user created successfully",
         user: {
           name: user.name,
           phone: user.phone,
