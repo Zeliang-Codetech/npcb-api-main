@@ -8,6 +8,8 @@ import Database from "./src/config/database.js";
 import path, { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import router from "./src/routes/index.js";
+import https from 'https';
+import fs from 'fs';
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -34,9 +36,29 @@ const startServer = async () => {
     // Initialize database connection
     await Database();
     
-    app.listen(8082, () => {
-      console.log("Server running on PORT 8082");
-    });
+    // For development (Windows/Local environment)
+    if (process.env.NODE_ENV === 'development') {
+      app.listen(8082, () => {
+        console.log("Server running on PORT 8082 (HTTP)");
+      });
+    } else {
+      // For production with SSL (Linux environment)
+      const httpsOptions = {
+        cert: fs.readFileSync('/etc/letsencrypt/live/backend.npcb.in/fullchain.pem'),
+        key: fs.readFileSync('/etc/letsencrypt/live/backend.npcb.in/privkey.pem')
+      };
+    
+      https.createServer(httpsOptions, app).listen(443, () => {
+        console.log('HTTPS Server running on port 443');
+      });
+    
+      // Redirect HTTP to HTTPS
+      const httpApp = express();
+      httpApp.all('*', (req, res) => {
+        res.redirect(`https://${req.hostname}${req.url}`);
+      });
+      httpApp.listen(80);
+    }
   } catch (error) {
     console.error("Failed to start server:", error);
     process.exit(1);
@@ -85,5 +107,5 @@ app.use((err, req, res, next) => {
     message: err.message,
   });
 });
-
+// Make sure to call startServer
 startServer();

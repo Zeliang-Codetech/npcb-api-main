@@ -9,6 +9,8 @@ import Client from "./../../../models/Client.js";
 // import { SentOtp, VerifyOtp } from "../utils/Fcm.js";
 const signAccessToken = JWT.signClientAccessToken;
 // const signRefreshToken = JWT.signClientRefreshToken;
+import { sendOTPEmail } from '../../../utils/EmailService.js';
+import { generateOTP } from '../../../utils/Helpers.js';
 export default {
   register: async (req, res, next) => {
     try {
@@ -146,23 +148,31 @@ export default {
 
   sentOtp: async (req, res, next) => {
     try {
-      const { phone } = req.body;
+      const { email } = req.body;
 
-      if (!phone) {
-        throw createHttpError.BadRequest("Phone number is required");
+      if (!email) {
+        throw createHttpError.BadRequest("Email is required");
       }
 
-      // Generate a random 6-digit OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
+      // Generate a 4-digit OTP
+      const otp = generateOTP();
       const session_id = Date.now().toString();
 
-      console.log(`OTP for ${phone}: ${otp}`);
+      // Store OTP in memory (in production, use Redis or database)
+      global.otpStore = global.otpStore || {};
+      global.otpStore[session_id] = {
+        email,
+        otp,
+        timestamp: Date.now()
+      };
+
+      // Send OTP via email
+      await sendOTPEmail(email, otp);
 
       res.status(200).send({
         status: true,
         session_id,
-        message: "OTP sent successfully"
+        message: "OTP sent successfully to your email"
       });
     } catch (err) {
       console.error("Send OTP Error:", err);
@@ -175,26 +185,39 @@ export default {
 
   verifyOtp: async (req, res, next) => {
     try {
-      const { phone, otp, session_id } = req.body;
+      const { email, otp, session_id } = req.body;
 
-      if (!phone || !otp || !session_id) {
+      if (!email || !otp || !session_id) {
         throw createHttpError.BadRequest("Missing required fields");
       }
 
-      const isValidOTP = true;
+      // Verify OTP
+      const storedOTPData = global.otpStore[session_id];
+      if (!storedOTPData) {
+        throw createHttpError.BadRequest("Invalid session");
+      }
 
-      if (!isValidOTP) {
+      // Check if OTP is expired (5 minutes)
+      if (Date.now() - storedOTPData.timestamp > 5 * 60 * 1000) {
+        delete global.otpStore[session_id];
+        throw createHttpError.BadRequest("OTP expired");
+      }
+
+      // Verify OTP
+      if (storedOTPData.email !== email || storedOTPData.otp !== otp) {
         throw createHttpError.Unauthorized("Invalid OTP");
       }
 
+      // Clear used OTP
+      delete global.otpStore[session_id];
+
       // Find or create user
-      let user = await Client.findOne({ phone });
+      let user = await Client.findOne({ email });
 
       if (!user) {
         user = await Client.create({
-          phone,
-          name: "",
-          status: 1 
+          email,
+          status: 1
         });
       }
 
@@ -205,7 +228,7 @@ export default {
         accessToken,
         user: {
           name: user.name,
-          phone: user.phone,
+          email: user.email,
           _id: user._id
         }
       });
