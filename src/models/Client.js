@@ -9,6 +9,7 @@ const ClientSchema = new mongoose.Schema(
     },
     phone: {
       type: Number,
+      sparse: true,
     },
     email: {
       type: String,

@@ -86,8 +86,8 @@ export default {
   },
   getMyComplaints: async (req, res) => {
     try {
-      const client_id = req.params._id;
-      const complaints = await Complaint.find({})
+      const client_id = req.payload._id;
+      const complaints = await Complaint.find({ client_id })
         .select("_id image status latitude longitude aqi")
         .populate({ path: "category_id", select: "name" })
         .populate({ path: "city_id", select: "name" })
