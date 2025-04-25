@@ -189,4 +189,54 @@ export default {
     }
   },
   
+  // New method for updating complaint status
+  updateComplaintStatus: async (req, res) => {
+    try {
+      const complaint_id = req.params.id;
+      const { status } = req.body;
+      
+      // Validate complaint ID
+      if (!isValidObjectId(complaint_id)) {
+        throw createHttpError.BadRequest("Invalid complaint ID");
+      }
+      
+      // Validate status value
+      if (![0, 1, 2].includes(Number(status))) {
+        throw createHttpError.BadRequest("Invalid status value. Status must be 0 (RESOLVED), 1 (PENDING), or 2 (REJECTED)");
+      }
+      
+      // Update the complaint status
+      const updatedComplaint = await Complaint.findByIdAndUpdate(
+        complaint_id,
+        { status: Number(status) },
+        { new: true }
+      );
+      
+      if (!updatedComplaint) {
+        throw createHttpError.NotFound("Complaint not found");
+      }
+      
+      // Return success response with status name
+      const statusNames = {
+        0: "RESOLVED",
+        1: "PENDING",
+        2: "REJECTED"
+      };
+      
+      res.status(200).send({
+        status: true,
+        message: `Complaint status updated to ${statusNames[updatedComplaint.status]}`,
+        data: {
+          _id: updatedComplaint._id,
+          status: updatedComplaint.status,
+          status_name: statusNames[updatedComplaint.status]
+        }
+      });
+    } catch (err) {
+      res.status(err.status || 500).send({
+        status: false,
+        message: err.message
+      });
+    }
+  }
 };

@@ -1,268 +1,229 @@
 import createHttpError from "http-errors";
-import JWT from "./../../../helpers/jwt.js";
-import bcrypt from "bcrypt";
-import {
-  AuthSchema,
-  AuthRegisterSchema,
-} from "./../../../validators/AuthValidator.js";
-import Client from "./../../../models/Client.js";
-// import { SentOtp, VerifyOtp } from "../utils/Fcm.js";
+import JWT from "../../../helpers/jwt.js";
+import Client from "../../../models/Client.js";
+import { generateOTP } from "../../../utils/Helpers.js";
+import { sendOTPEmail } from "../../../utils/EmailService.js";
+import { sendOTPSMS } from "../../../utils/SmsService.js";
+
 const signAccessToken = JWT.signClientAccessToken;
-// const signRefreshToken = JWT.signClientRefreshToken;
-import { sendOTPEmail } from '../../../utils/EmailService.js';
-import { generateOTP } from '../../../utils/Helpers.js';
+
 export default {
-  register: async (req, res, next) => {
+  sentOtp: async (req, res) => {
     try {
-      await AuthRegisterSchema.validateAsync(req.body).catch((err) => {
-        throw createHttpError.BadRequest();
-      });
-      const { phone, password, name, email = "" } = req.body;
-      // await User.deleteOne({ phone, status: 0 });
-      const isUserExists = await Client.findOne({ phone });
-      if (isUserExists)
-        throw createHttpError.Conflict(`${phone} is already been registerd`);
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const user = await Client.findOneAndUpdate(
-        { phone },
-        {
-          name: name,
-          phone: phone,
-          email,
-          password: hashedPassword,
-        },
-        { upsert: true, new: true }
-      ).catch((err) => {
-        throw createHttpError.InternalServerError(err);
-      });
-      if (!user) throw createHttpError.InternalServerError();
-      const accessToken = await signAccessToken(user._id);
-      const refreshToken = await signRefreshToken(user._id);
-      res.cookie("token", accessToken, {
-        httpOnly: true,
-        secure: true,
-        sameSite: false,
-        maxAge: 1 * 24 * 60 * 60 * 1000,
-      });
-      res.status(200).send({
-        status: true,
-        user: {
-          name: user.name,
-          phone: user.phone,
-          accessToken,
-          refreshToken,
-        },
-      });
-    } catch (err) {
-      res
-        .status(err.status || 500)
-        .send({ status: false, message: err.message });
-    }
-  },
-  login: async (req, res, next) => {
-    try {
-      await AuthSchema.validateAsync(req.body).catch((data) => {
-        throw createHttpError.BadRequest();
-      });
-      const { phone, password, fcm_token } = req.body;
-      const user = await Client.findOne({
-        phone,
-        status: 0,
-        role: UserRole.ADMIN,
-      }).catch((err) => {
-        throw createHttpError.InternalServerError();
-      });
-
-      if (!user)
-        throw createHttpError.Unauthorized("Username/password not valid"); // User not registered
-      // if (user && (await user.isValidPassword(plainTextPassword))) { }
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch)
-        throw createHttpError.Unauthorized("Username/password not valid");
-      const accessToken = await signAccessToken(user._id);
-      const refreshToken = await signRefreshToken(user._id);
-      res.cookie("token", accessToken, {
-        httpOnly: true,
-        secure: true,
-        // sameSite: "None",
-        sameSite: false,
-        maxAge: 30 * 24 * 60 * 60 * 1000,
-      });
-      res.status(200).send({
-        status: true,
-        user: {
-          name: user.name,
-          phone: user.phone,
-          accessToken,
-          refreshToken,
-        },
-      });
-    } catch (error) {
-      res
-        .status(error.status || 500)
-        .send({ status: false, message: error.message });
-    }
-  },
-  getUser: async (req, res, next) => {
-    try {
-      const user_id = req.payload._id;
-      const data = await Client.findOne(
-        { _id: user_id, account_status: AccountStatus.ACTIVE },
-        "name phone image verification_status ngo_verification_status user_document_front user_document_back ngo_document_front ngo_document_back user_document_type description"
-      ).catch((err) => {
-        throw createHttpError.InternalServerError(err);
-      });
-      if (!data) throw createHttpError.InternalServerError();
-      res.status(200).send({ status: true, data });
-    } catch (err) {
-      res
-        .status(err.status || 500)
-        .send({ status: false, message: err.message });
-    }
-  },
-  refreshToken: async (req, res, next) => {
-    try {
-      const { refreshToken } = req.body;
-      console.log(req.body);
-      if (!refreshToken) throw createHttpError.BadRequest();
-      const userId = await verifyRefreshToken(refreshToken);
-      const accessToken = await signAccessToken(userId);
-      const refToken = await signRefreshToken(userId);
-      res.send({
-        status: true,
-        accessToken: accessToken,
-        refreshToken: refToken,
-      });
-    } catch (err) {
-      next(err);
-    }
-  },
-  logout: async (req, res, next) => {
-    try {
-      // Delete refresh token from table refresh token after logout
-      res.clearCookie("token").status(200).send({ status: true });
-    } catch (err) {
-      res.status(500).send({ status: false });
-    }
-  },
-
-  sentOtp: async (req, res, next) => {
-    try {
-      const { email } = req.body;
-
-      if (!email) {
-        throw createHttpError.BadRequest("Email is required");
+      const { email, phone } = req.body;
+      
+      if (!email && !phone) {
+        throw createHttpError.BadRequest("Email or phone number is required");
       }
 
-      // Generate a 4-digit OTP
       const otp = generateOTP();
-      const session_id = Date.now().toString();
+      let client;
+      
+      if (email) {
+        // Find existing email user
+        client = await Client.findOne({ email, login_type: 'email' });
+        
+        if (!client) {
+          // Create new email user
+          client = await Client.create({
+            email,
+            otp,
+            login_type: 'email',
+            status: 1,
+            otp_expires_at: new Date(Date.now() + 5 * 60 * 1000)
+          });
+        } else {
+          // Update existing email user
+          await Client.updateOne(
+            { _id: client._id },
+            {
+              $set: {
+                otp,
+                otp_expires_at: new Date(Date.now() + 5 * 60 * 1000)
+              }
+            }
+          );
+        }
+        
+        await sendOTPEmail(email, otp);
+      } else if (phone) {
+        // For phone users, we'll handle creation in verifyOtp
+        // Just update OTP if user exists
+        await Client.findOneAndUpdate(
+          { phone, login_type: 'phone' },
+          { 
+            $set: { 
+              otp,
+              otp_expires_at: new Date(Date.now() + 5 * 60 * 1000)
+            }
+          },
+          { upsert: true }
+        );
+        
+        await sendOTPSMS(phone, otp);
+      }
 
-      // Store OTP in memory (in production, use Redis or database)
-      global.otpStore = global.otpStore || {};
-      global.otpStore[session_id] = {
-        email,
-        otp,
-        timestamp: Date.now()
+      res.status(200).send({
+        status: true,
+        message: "OTP sent successfully",
+      });
+    } catch (err) {
+      res.status(err.status || 500).send({
+        status: false,
+        message: err.message,
+      });
+    }
+  },
+
+  verifyOtp: async (req, res) => {
+    try {
+      let { email, phone, otp } = req.body;
+
+      // Handle case where phone number is sent in email field
+      if (email && !isNaN(email)) {
+        phone = parseInt(email);
+        email = null;
+      }
+
+      if (!email && !phone) {
+        throw createHttpError.BadRequest("Email or phone number is required");
+      }
+
+      if (!otp) {
+        throw createHttpError.BadRequest("OTP is required");
+      }
+
+      // Find client based on login method AND login_type to ensure separation
+      const searchQuery = email 
+        ? { email, login_type: 'email' } 
+        : { phone, login_type: 'phone' };
+      
+      let client = await Client.findOne(searchQuery);
+
+      // Handle user creation/verification differently for email and phone
+      if (!client) {
+        if (phone) {
+          // For phone login, create new user if doesn't exist
+          client = await Client.create({
+            phone,
+            otp,
+            login_type: 'phone',
+            status: 1,
+            otp_expires_at: new Date(Date.now() + 5 * 60 * 1000)
+          });
+        } else if (email) {
+          // For email login, user must exist
+          throw createHttpError.BadRequest("Email user not found. Please register first.");
+        }
+      } else {
+        // Verify OTP
+        if (client.otp !== otp) {
+          throw createHttpError.BadRequest("Invalid OTP");
+        }
+
+        // Check OTP expiration
+        if (client.otp_expires_at < new Date()) {
+          throw createHttpError.BadRequest("OTP has expired");
+        }
+      }
+
+      // Clear OTP after successful verification
+      await Client.updateOne(
+        { _id: client._id },
+        { 
+          $unset: { 
+            otp: 1,
+            otp_expires_at: 1
+          },
+          $set: {
+            last_login_at: new Date()
+          }
+        }
+      );
+
+      // Generate access token
+      const accessToken = await signAccessToken(client._id);
+
+      // Return user data based on login type
+      const userData = {
+        _id: client._id,
+        name: client.name,
+        login_type: client.login_type
       };
 
-      // Send OTP via email
-      await sendOTPEmail(email, otp);
+      if (client.login_type === 'email') {
+        userData.email = client.email;
+      } else {
+        userData.phone = client.phone;
+      }
 
+      // In the verifyOtp method, modify the response:
       res.status(200).send({
         status: true,
-        session_id,
-        message: "OTP sent successfully to your email"
-      });
-    } catch (err) {
-      console.error("Send OTP Error:", err);
-      res.status(err.status || 500).send({
-        status: false,
-        message: err.message || "Failed to send OTP"
-      });
-    }
-  },
-
-  verifyOtp: async (req, res, next) => {
-    try {
-      const { email, otp, session_id } = req.body;
-
-      if (!email || !otp || !session_id) {
-        throw createHttpError.BadRequest("Missing required fields");
-      }
-
-      // Verify OTP
-      const storedOTPData = global.otpStore[session_id];
-      if (!storedOTPData) {
-        throw createHttpError.BadRequest("Invalid session");
-      }
-
-      // Check if OTP is expired (5 minutes)
-      if (Date.now() - storedOTPData.timestamp > 5 * 60 * 1000) {
-        delete global.otpStore[session_id];
-        throw createHttpError.BadRequest("OTP expired");
-      }
-
-      // Verify OTP
-      if (storedOTPData.email !== email || storedOTPData.otp !== otp) {
-        throw createHttpError.Unauthorized("Invalid OTP");
-      }
-
-      // Clear used OTP
-      delete global.otpStore[session_id];
-
-      // Find or create user
-      let user = await Client.findOne({ email });
-
-      if (!user) {
-        user = await Client.create({
-          email,
-          status: 1
-        });
-      }
-
-      const accessToken = await signAccessToken(user._id);
-
-      res.status(200).send({
-        status: true,
-        accessToken,
-        user: {
-          name: user.name,
-          email: user.email,
-          _id: user._id
+        message: "OTP verified successfully",
+        data: {
+          token: accessToken, // Changed from accessToken to token for consistency
+          user: userData
         }
       });
     } catch (err) {
-      console.error("Verify OTP Error:", err);
       res.status(err.status || 500).send({
         status: false,
-        message: err.message || "Failed to verify OTP"
+        message: err.message,
       });
     }
   },
 
-  resetPassword: async (req, res, next) => {
+  getUser: async (req, res) => {
     try {
-      const { password } = req.body;
-      const consumerId = req.payload._id;
-      if (!password) throw createHttpError.BadRequest();
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const data = await Client.update(
-        {
-          password: hashedPassword,
-        },
-        {
-          where: { _id: consumerId },
-        }
-      ).catch((err) => {
-        throw createHttpError.InternalServerError();
+      const client_id = req.payload._id;
+      
+      const client = await Client.findById(client_id)
+        .select('_id name email phone login_type status')  // Added status to selection
+        .lean();
+
+      if (!client) {
+        throw createHttpError.NotFound('Client not found');
+      }
+
+      // Return user details based on login type
+      const userData = {
+        _id: client._id,
+        name: client.name,
+        login_type: client.login_type,
+        status: client.status
+      };
+
+      // Only include email or phone based on login type
+      if (client.login_type === 'email') {
+        userData.email = client.email;
+      } else {
+        userData.phone = client.phone;
+      }
+
+      res.status(200).send({
+        status: true,
+        data: userData
       });
-      if (!data) throw createHttpError.InternalServerError();
-      res.status(200).send({ status: true });
     } catch (err) {
-      res
-        .status(err.status || 500)
-        .send({ status: false, message: err.message });
+      res.status(err.status || 500).send({
+        status: false,
+        message: err.message
+      });
     }
   },
+
+  logout: async (req, res) => {
+    try {
+      res.clearCookie('token').status(200).send({ 
+        status: true,
+        message: 'Logged out successfully'
+      });
+    } catch (err) {
+      res.status(500).send({ 
+        status: false,
+        message: err.message
+      });
+    }
+  }
 };
