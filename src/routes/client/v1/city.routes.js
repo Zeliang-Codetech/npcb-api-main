@@ -3,5 +3,5 @@ import CityController from "./../../../controllers/admin/v1/master/CityControlle
 const router = express.Router();
 
 router.get("/", CityController.getCities);
-router.get("/:id", CityController.getCity); // Add this new route
+router.get("/:id", CityController.getCity);
 export default router;

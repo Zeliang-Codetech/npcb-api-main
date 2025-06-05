@@ -17,8 +17,7 @@ router.use("/client/v1/auth", clientAuthRoutes);
 // Protected routes
 router.use("/admin", verifyAdminAccessToken, adminRoutes);
 router.use("/client", (req, res, next) => {
-  // Skip auth middleware for OTP routes
-  if (req.path.startsWith('/v1/otp')) {
+  if (req.path.startsWith('/v1/otp') || req.path.startsWith('/v1/about-us') || req.path.startsWith('/v1/bulletin')) {
     return next();
   }
   verifyClientAccessToken(req, res, next);

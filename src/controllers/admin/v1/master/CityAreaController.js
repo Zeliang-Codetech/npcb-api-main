@@ -43,16 +43,24 @@ export default {
   },
   deleteArea: async (req, res, next) => {
     try {
-      const { city_id } = req.body;
       const area_id = req.params.id;
-      const updatedCity = await City.findOneAndUpdate(
-        { _id: city_id },
+      
+      const city = await City.findOne({ "areas._id": area_id });
+      
+      if (!city) {
+        throw createHttpError.NotFound("Area not found in any city");
+      }
+      
+      // Remove the area from the city
+      const updatedCity = await City.findByIdAndUpdate(
+        city._id,
         { $pull: { areas: { _id: area_id } } },
         { new: true }
       );
+      
       res.status(200).send({ status: true });
     } catch (err) {
-      res.status(500).send({
+      res.status(err.status || 500).send({
         status: false,
         message: err.message,
       });
