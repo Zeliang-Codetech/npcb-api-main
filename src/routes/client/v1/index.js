@@ -5,6 +5,7 @@ import cityRoutes from "./city.routes.js";
 import categoryRoutes from "./category.routes.js";
 import aboutUsRoutes from "./about-us.routes.js";
 import bulletinRoutes from "./bulletin.routes.js";
+import helpSupportRoutes from "./help-support.routes.js";
 import ClientAuthController from "../../../controllers/auth/v1/ClientAuthController.js";
 
 const router = express.Router();
@@ -15,6 +16,7 @@ router.use("/city", cityRoutes);
 router.use("/category", categoryRoutes);
 router.use("/about-us", aboutUsRoutes);
 router.use("/bulletin", bulletinRoutes);
+router.use("/help-support", helpSupportRoutes);
 
 router.post("/otp/send", (req, res, next) => {
   ClientAuthController.sentOtp(req, res, next);
