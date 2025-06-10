@@ -17,7 +17,7 @@ router.use("/client/v1/auth", clientAuthRoutes);
 // Protected routes
 router.use("/admin", verifyAdminAccessToken, adminRoutes);
 router.use("/client", (req, res, next) => {
-  if (req.path.startsWith('/v1/otp') || req.path.startsWith('/v1/about-us') || req.path.startsWith('/v1/bulletin')) {
+  if (req.path.startsWith('/v1/otp') || req.path.startsWith('/v1/about-us') || req.path.startsWith('/v1/bulletin') || req.path.startsWith('/v1/help-support')) {
     return next();
   }
   verifyClientAccessToken(req, res, next);
